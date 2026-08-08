@@ -176,6 +176,50 @@ orienté RSSI. **Lecture seule**, dates au format JJ-MM-AAAA.
 > contexte. Ce rapport ne remplace pas un audit complet (PingCastle,
 > PurpleKnight…) mais fournit des KPI exploitables rapidement.
 
+### `Export-ADInactiveReport.ps1`
+
+Reprend les informations des rapports utilisateurs et ordinateurs, filtrées sur
+les objets **inactifs (> 30 jours)**, dans un classeur à trois feuilles (dates
+au format JJ-MM-AAAA) :
+
+1. **Synthèse (KPI)** — nombre de comptes et d'ordinateurs inactifs de **plus de
+   30, 90, 180 et 365 jours** (comptage cumulatif), avec un graphique comparatif
+   utilisateurs / ordinateurs.
+2. **Utilisateurs inactifs** — mêmes colonnes que `Export-ADUsersReport.ps1`,
+   plus le nombre de jours d'inactivité et la tranche.
+3. **Ordinateurs inactifs** — mêmes colonnes que `Export-ADComputersReport.ps1`,
+   plus la tranche.
+
+L'inactivité s'appuie sur `LastLogonDate` (ou la date de création si aucune
+connexion n'est enregistrée, pour ne pas signaler à tort un objet récent).
+
+```powershell
+.\Export-ADInactiveReport.ps1
+.\Export-ADInactiveReport.ps1 -SearchBase "OU=Comptes,DC=example,DC=local"
+```
+
+### `Export-ADComputersNoBitLocker.ps1`
+
+Liste les postes **sans clé de récupération BitLocker sauvegardée dans l'AD**,
+avec les mêmes colonnes que l'export des ordinateurs. Classeur à deux feuilles
+(dates au format JJ-MM-AAAA) :
+
+1. **Synthèse (KPI)** — total de postes, postes avec / sans clé, **taux de
+   couverture** et graphique.
+2. **PC sans BitLocker** — le détail des postes non couverts.
+
+Détection : un poste dont la clé est sauvegardée dans l'AD possède un objet
+enfant `msFVE-RecoveryInformation`. Le script recense ces objets et en déduit
+les postes non couverts.
+
+> Ceci vérifie la présence d'une clé **dans l'AD**, pas le chiffrement réel du
+> disque (qui nécessite d'interroger la machine via `Get-BitLockerVolume`). La
+> lecture des objets BitLocker requiert des droits d'administration.
+
+```powershell
+.\Export-ADComputersNoBitLocker.ps1
+```
+
 ### `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1`
 
 Audit des partages réseau SMB/NTFS des serveurs Windows du domaine, en **deux
