@@ -12,6 +12,7 @@ format **JJ-MM-AAAA**.
 
 | Script | Rôle | Sortie |
 |---|---|---|
+| ⭐ `Export-ADFullReport.ps1` | **Rapport tout-en-un** : tableau de bord + tout l'AD | **1 seul Excel** (dashboard + ~16 feuilles) |
 | `Export-ADUsersReport.ps1` | Comptes utilisateurs AD | Excel (KPI + détail) |
 | `Export-ADComputersReport.ps1` | Ordinateurs AD + obsolescence Windows | Excel (KPI + détail) |
 | `Export-ADGroupsReport.ps1` | Groupes AD et leurs membres (users / PC) | Excel (4 feuilles) |
@@ -44,6 +45,25 @@ Voir aussi la section [Prérequis](#prérequis) et le
 [Guide pas à pas de l'audit SMB/NTFS](#guide--audit-des-partages-smbntfs-pas-à-pas).
 
 ## Scripts en détail
+
+### ⭐ `Export-ADFullReport.ps1` — rapport tout-en-un
+
+Le script « couteau suisse » : une seule exécution, **un seul classeur Excel**
+avec un **tableau de bord KPI exécutif** en première page (comptes, ordinateurs,
+sécurité, hygiène — chaque indicateur avec un niveau de risque coloré et des
+graphiques) puis **~16 feuilles de détail** : Utilisateurs, Ordinateurs, Comptes
+inactifs, Ordinateurs inactifs, Comptes privilégiés, Kerberoastables, MDP à
+risque, Groupes, Trusts, GPO, cpassword (GPP), Sans BitLocker, Doublons,
+Échéances, Santé DC, AD CS. Modules optionnels absents ignorés sans erreur.
+
+```powershell
+.\Export-ADFullReport.ps1
+.\Export-ADFullReport.ps1 -InactiveDays 60 -MaxPasswordAgeDays 180
+```
+
+> Idéal pour une photo globale rapide. Pour l'analyse la plus fine d'un domaine
+> précis (ACL de délégation complètes, scan SNMP, protocoles, audit SMB/NTFS,
+> capture live LDAP…), utilisez le script dédié correspondant.
 
 ### `Export-ADUsersReport.ps1`
 
