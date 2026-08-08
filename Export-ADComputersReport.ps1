@@ -63,7 +63,7 @@ param(
     [int]$InactiveDays = 90,
 
     [string]$OutputPath = (Join-Path ([Environment]::GetFolderPath('Desktop')) `
-        ("Rapport_AD_Ordinateurs_{0}.xlsx" -f (Get-Date -Format 'yyyy-MM-dd_HHmm')))
+        ("Rapport_AD_Ordinateurs_{0}.xlsx" -f (Get-Date -Format 'dd-MM-yyyy_HHmm')))
 )
 
 $ErrorActionPreference = 'Stop'
@@ -228,7 +228,7 @@ if (Test-Path $OutputPath) { Remove-Item $OutputPath -Force }
 $excel = $report | Export-Excel -Path $OutputPath -WorksheetName 'Ordinateurs' `
     -AutoSize -AutoFilter -FreezeTopRow -BoldTopRow `
     -TableName 'Ordinateurs' -TableStyle 'Medium2' `
-    -Title ("Détail des ordinateurs Active Directory - {0}" -f $now.ToString('dd/MM/yyyy HH:mm')) `
+    -Title ("Détail des ordinateurs Active Directory - {0}" -f $now.ToString('dd-MM-yyyy HH:mm')) `
     -TitleBold -TitleSize 14 -PassThru
 
 $wsData    = $excel.Workbook.Worksheets['Ordinateurs']
@@ -243,7 +243,7 @@ foreach ($colName in @('Date de création', 'Dernière connexion')) {
     for ($c = 1; $c -le $lastCol; $c++) {
         if ($wsData.Cells[$headerRow, $c].Value -eq $colName) {
             $l = [OfficeOpenXml.ExcelCellAddress]::GetColumnLetter($c)
-            $wsData.Cells[("{0}{1}:{0}{2}" -f $l, $firstData, $lastRow)].Style.Numberformat.Format = 'yyyy-mm-dd hh:mm'
+            $wsData.Cells[("{0}{1}:{0}{2}" -f $l, $firstData, $lastRow)].Style.Numberformat.Format = 'dd-mm-yyyy hh:mm'
         }
     }
 }
@@ -276,7 +276,7 @@ $wsK.Cells['B2'].Style.Font.Size = 16
 $wsK.Cells['B2'].Style.Font.Bold = $true
 $wsK.Cells['B2:E2'].Merge = $true
 
-$wsK.Cells['B3'].Value = ("Date d'extraction : {0}" -f $now.ToString('dd/MM/yyyy HH:mm'))
+$wsK.Cells['B3'].Value = ("Date d'extraction : {0}" -f $now.ToString('dd-MM-yyyy HH:mm'))
 $wsK.Cells['B4'].Value = ("Auteur : {0}" -f $Author)
 $wsK.Cells['B5'].Value = ("Seuil d'inactivité : {0} jours" -f $InactiveDays)
 
