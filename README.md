@@ -151,6 +151,31 @@ orange.
 .\Export-ADDuplicateObjects.ps1 -SearchBase "OU=Comptes,DC=example,DC=local"
 ```
 
+### `Export-ADSecurityPosture.ps1`
+
+Tableau de bord de **posture de sécurité** de l'AD (type PingCastle allégé),
+orienté RSSI. **Lecture seule**, dates au format JJ-MM-AAAA.
+
+- **Synthèse (KPI)** — première page : chaque indicateur avec un **niveau de
+  risque** (OK / À surveiller / Critique, code couleur) et un graphique de
+  répartition. Indicateurs : membres Domain / Enterprise / Schema Admins, total
+  de comptes privilégiés, comptes privilégiés à mot de passe éternel ou
+  inactifs, âge du mot de passe **krbtgt**, comptes et ordinateurs inactifs,
+  mots de passe « n'expire jamais » / « non requis », comptes **Kerberoastables**,
+  **délégation non contrainte**, objets avec **SIDHistory**, compte invité activé.
+- Une **feuille de détail par thème** pour simplifier la lecture : `Comptes
+  privilégiés`, `Comptes inactifs`, `Ordinateurs inactifs`, `Problèmes MDP`,
+  `Kerberoastables`, `Délégation`, `SIDHistory`, `Politique MDP`.
+
+```powershell
+.\Export-ADSecurityPosture.ps1
+.\Export-ADSecurityPosture.ps1 -InactiveDays 60 -MaxPasswordAgeDays 180
+```
+
+> Les seuils et niveaux de risque sont indicatifs et à adapter à votre
+> contexte. Ce rapport ne remplace pas un audit complet (PingCastle,
+> PurpleKnight…) mais fournit des KPI exploitables rapidement.
+
 ### `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1`
 
 Audit des partages réseau SMB/NTFS des serveurs Windows du domaine, en **deux
