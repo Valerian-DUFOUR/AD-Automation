@@ -1,9 +1,36 @@
-# AD Automation — Scripts d'extraction Active Directory
+# AD Automation — Boîte à outils Active Directory & réseau
 
-Collection de scripts PowerShell pour automatiser l'extraction d'informations
-Active Directory et générer des rapports Excel formatés.
+Collection de scripts **PowerShell** pour l'administration, l'hygiène et la
+**sécurité** d'un domaine Active Directory : extractions (utilisateurs,
+ordinateurs, groupes, GPO), détection de doublons, comptes et postes inactifs,
+couverture BitLocker, posture de sécurité (type PingCastle allégé), audit des
+partages SMB/NTFS et inventaire réseau multi-sites. La plupart des scripts
+génèrent un rapport **Excel (.xlsx)** avec une page **KPI** et des dates au
+format **JJ-MM-AAAA**.
 
-## Scripts disponibles
+## Vue d'ensemble
+
+| Script | Rôle | Sortie |
+|---|---|---|
+| `Export-ADUsersReport.ps1` | Comptes utilisateurs AD | Excel (KPI + détail) |
+| `Export-ADComputersReport.ps1` | Ordinateurs AD + obsolescence Windows | Excel (KPI + détail) |
+| `Export-ADGroupsReport.ps1` | Groupes AD et leurs membres (users / PC) | Excel (4 feuilles) |
+| `Export-GPOReport.ps1` | Stratégies de groupe (GPO), liens, fichiers scripts | Excel (4 feuilles) |
+| `Export-ADDuplicateObjects.ps1` | Objets en double (CNF, SPN, UPN, e-mail…) | Excel (KPI + détail) |
+| `Export-ADSecurityPosture.ps1` | Posture de sécurité RSSI (type PingCastle) | Excel (KPI + 8 feuilles) |
+| `Export-ADInactiveReport.ps1` | Comptes & PC inactifs (30 / 90 / 180 / 365 j) | Excel (KPI + détail) |
+| `Export-ADComputersNoBitLocker.ps1` | Postes sans clé BitLocker dans l'AD | Excel (KPI + détail) |
+| `Invoke-NetworkInventory.ps1` | Inventaire réseau + conformité VLAN | CSV / JSON / Excel (KPI) |
+| `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1` | Audit des partages SMB/NTFS (2 étapes) | CSV/JSON puis Excel |
+
+**Fichiers de données fournis :** `oui-db.csv` (base des fabricants MAC IEEE,
+requise par l'inventaire réseau), `sites.example.csv` et `vlans.example.csv`
+(modèles de plan à adapter pour l'inventaire réseau).
+
+Voir aussi la section [Prérequis](#prérequis) et le
+[Guide pas à pas de l'audit SMB/NTFS](#guide--audit-des-partages-smbntfs-pas-à-pas).
+
+## Scripts en détail
 
 ### `Export-ADUsersReport.ps1`
 
@@ -27,13 +54,13 @@ Colonnes exportées :
 | Statut (Activé / Désactivé) | `Enabled` |
 | MDP n'expire jamais | `PasswordNeverExpires` |
 
-Mise en forme du rapport :
+Le classeur contient **deux feuilles** (dates au format JJ-MM-AAAA) :
 
-- Tableau filtrable avec en-tête en gras et première ligne figée
-- Colonnes ajustées automatiquement
-- Dates formatées `AAAA-MM-JJ HH:MM`
-- Comptes **désactivés** surlignés en rouge clair
-- Mots de passe en **« n'expire jamais »** signalés en rouge gras
+1. **Synthèse (KPI)** — total de comptes, activés / désactivés, mots de passe
+   « n'expire jamais », comptes sans e-mail, répartition par OU et graphique.
+2. **Utilisateurs AD** — le détail en tableau filtrable : comptes **désactivés**
+   surlignés en rouge clair, mots de passe **« n'expire jamais »** en rouge gras,
+   colonnes ajustées et première ligne figée.
 
 ### `Export-ADComputersReport.ps1`
 
@@ -386,28 +413,33 @@ Les partages exposés sont classés en quatre niveaux :
 - Droits de **lecture** sur l'annuaire Active Directory (et sur SYSVOL pour
   lister les fichiers de scripts des GPO)
 
-## Utilisation
+## Utilisation générale
 
-Extraction de tout le domaine, rapport déposé sur le Bureau :
+La plupart des scripts d'extraction AD partagent les mêmes options. Par défaut,
+le rapport est déposé sur le **Bureau** de l'utilisateur courant.
 
 ```powershell
+# Tout le domaine
 .\Export-ADUsersReport.ps1
-```
 
-Limiter la recherche à une OU précise :
+# Limiter à une OU précise (commun à la majorité des scripts)
+.\Export-ADUsersReport.ps1 -SearchBase "OU=Utilisateurs,DC=example,DC=local"
 
-```powershell
-.\Export-ADUsersReport.ps1 -SearchBase "OU=Utilisateurs,DC=contoso,DC=local"
-```
-
-Choisir un emplacement de sortie personnalisé :
-
-```powershell
+# Choisir l'emplacement de sortie
 .\Export-ADUsersReport.ps1 -OutputPath "C:\Rapports\ad_users.xlsx"
 ```
 
+Options communes : `-SearchBase` (cibler une OU), `-OutputPath` (fichier de
+sortie). Certains scripts ajoutent leurs propres paramètres, décrits dans leur
+section ci-dessus et dans l'aide intégrée (`Get-Help .\Script.ps1 -Full`).
+
 > Si l'exécution des scripts est bloquée par la politique de sécurité, lancez :
 > `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+
+> **Où lancer les scripts ?** De préférence depuis un **contrôleur de domaine**
+> (ou une machine avec les outils RSAT), avec des droits de lecture sur l'AD.
+> Les scripts de sécurité/inventaire donnent des résultats plus complets exécutés
+> au plus près de l'annuaire et du réseau.
 
 ## Avertissement
 
