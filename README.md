@@ -425,13 +425,18 @@ expirés. Postes sans LAPS surlignés. `.\Export-LAPSReport.ps1`
 Connexions LDAP non sécurisées (binds simples/en clair ou non signés) via les
 événements DC 2889 (détail par client) et 2887 (compteur). Regroupe par compte
 et par IP. Nécessite la journalisation « 16 LDAP Interface Events = 2 » sur les
-DC (rappelée dans l'en-tête). `.\Export-InsecureLDAPReport.ps1 -Days 30`
+DC (rappelée dans l'en-tête). Deux modes : historique (`-Days 30`) ou **capture
+live** sur une durée personnalisable pour ne rien rater
+(`-MonitorMinutes 120 -IntervalSeconds 30`). `.\Export-InsecureLDAPReport.ps1 -Days 30`
 
 ### `Export-InsecureProtocolsReport.ps1`
 Audit des protocoles/réglages dangereux ou obsolètes (SMBv1, signature SMB,
 LLMNR, NTLMv1/LM, WDigest, TLS 1.0/1.1 & SSL, LDAP signing/channel binding, RDP
 NLA, PowerShell v2, Telnet/FTP, spouleur…). Chaque point classé OK / À risque /
-Critique. Local ou multi-machines : `.\Export-InsecureProtocolsReport.ps1 -ComputerName DC01,SRV01`
+Critique. Local ou multi-machines : `.\Export-InsecureProtocolsReport.ps1 -ComputerName DC01,SRV01`.
+Option **capture live de l'usage SMBv1** sur une durée personnalisable
+(`-CaptureMinutes 240`), pour repérer les clients utilisant encore SMBv1 avant
+de le désactiver (nécessite `Set-SmbServerConfiguration -AuditSmb1Access $true`).
 
 ### `Export-ADTrustsReport.ps1`
 Relations d'approbation : sens, type, transitivité, auth sélective, filtrage SID.
