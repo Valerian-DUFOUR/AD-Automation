@@ -121,6 +121,36 @@ classeur à quatre feuilles (dates au format JJ-MM-AAAA) :
 .\Export-GPOReport.ps1
 ```
 
+### `Export-ADDuplicateObjects.ps1`
+
+Détecte les objets en double dans l'AD (hygiène et sécurité), dans un classeur
+à deux feuilles (dates au format JJ-MM-AAAA) :
+
+1. **Synthèse** — KPI par famille de doublon (valeurs en double et objets
+   concernés), total et graphique.
+2. **Doublons** — le détail, un objet concerné par ligne (type de doublon,
+   valeur dupliquée, nombre d'occurrences, objet, OU, date de création).
+
+Familles détectées :
+
+| Famille | Intérêt |
+|---|---|
+| Objets en conflit (CNF) | Objets `...CNF:` issus de conflits de réplication |
+| **SPN en double** | Même ServicePrincipalName sur plusieurs objets — casse Kerberos (critique) |
+| UPN en double | `userPrincipalName` identiques |
+| E-mail en double | `mail` / `proxyAddresses` en collision |
+| DisplayName en double | Noms d'affichage identiques |
+| Nom (CN) en double | Même nom dans des OU différentes |
+| employeeID en double | Identifiants RH en double |
+
+Les SPN en double (critiques) sont surlignés en rouge, les objets en conflit en
+orange.
+
+```powershell
+.\Export-ADDuplicateObjects.ps1
+.\Export-ADDuplicateObjects.ps1 -SearchBase "OU=Comptes,DC=example,DC=local"
+```
+
 ### `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1`
 
 Audit des partages réseau SMB/NTFS des serveurs Windows du domaine, en **deux
