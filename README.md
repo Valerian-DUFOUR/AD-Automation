@@ -220,6 +220,39 @@ les postes non couverts.
 .\Export-ADComputersNoBitLocker.ps1
 ```
 
+### `Invoke-NetworkInventory.ps1`
+
+Inventaire réseau multi-sites et **contrôle de conformité VLAN**. Balaye les
+plages IP (sites × VLAN) du plan d'adressage, récupère l'adresse MAC de chaque
+équipement (ARP local, table ARP des passerelles via SNMP), résout le fabricant
+via la base OUI IEEE (`oui-db.csv`), déduit le **type d'équipement** (PC,
+serveur, NAS, imprimante, borne WiFi, switch, caméra IP, automate, onduleur…),
+localise la machine (site + VLAN) et vérifie qu'elle est dans le **bon VLAN**.
+
+Sorties : CSV, JSON, CSV des non-conformités, et Excel avec une feuille **KPI**
+(total d'hôtes, conformes / tolérés / non conformes avec pourcentages, nombre de
+sites et de types, répartition par site et par type + graphique) et une feuille
+détaillée où les non-conformités sont surlignées.
+
+Générique : **aucune donnée d'entreprise n'est codée en dur**. Le plan de sites
+est un exemple à personnaliser, ou à fournir via un CSV externe.
+
+```powershell
+# Nom d'entreprise + plan de sites externe + moisson SNMP des passerelles
+.\Invoke-NetworkInventory.ps1 -Entreprise "ACME" -SitesFile .\sites.csv -UseSnmpGateways
+
+# Cibler certains sites / VLAN, base d'adressage personnalisée
+.\Invoke-NetworkInventory.ps1 -BaseOctet 172 -Sites 1,2 -Vlans 1,2,20 -UseSnmpGateways
+```
+
+Le plan de sites (2ᵉ octet → établissement) se personnalise dans le script ou via
+`-SitesFile` pointant un CSV `Octet;Societe;Ville;Id` (voir `sites.example.csv`).
+Le plan de VLAN (3ᵉ octet → usage) et les règles de conformité par type
+d'équipement sont un modèle éditable en tête de script. À lancer de préférence
+**depuis le contrôleur de domaine** (ou un hôte routé vers tous les sites) pour
+une couverture maximale. Nécessite `oui-db.csv` à côté du script (base publique
+IEEE) ; l'export Excel utilise ImportExcel s'il est présent.
+
 ### `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1`
 
 Audit des partages réseau SMB/NTFS des serveurs Windows du domaine, en **deux
