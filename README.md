@@ -72,16 +72,95 @@ Options :
 
 ```powershell
 .\Export-ADComputersReport.ps1
-.\Export-ADComputersReport.ps1 -SearchBase "OU=Postes,DC=contoso,DC=local" -InactiveDays 60
+.\Export-ADComputersReport.ps1 -SearchBase "OU=Postes,DC=example,DC=local" -InactiveDays 60
 ```
+
+### `Export-ADGroupsReport.ps1`
+
+Extrait tous les groupes AD et leurs membres, dans un classeur à quatre
+feuilles (dates au format JJ-MM-AAAA) :
+
+1. **Synthèse** — KPI : total de groupes, sécurité vs distribution, groupes
+   vides, total des appartenances (dont utilisateurs / ordinateurs),
+   répartition par étendue et graphique.
+2. **Groupes** — un groupe par ligne : description, notes (« ce que fait le
+   groupe »), catégorie, étendue, gestionnaire, date de création, emplacement
+   (OU) et nombre de membres ventilé par type (utilisateurs / ordinateurs /
+   groupes / autres). Les groupes vides sont surlignés.
+3. **Membres Utilisateurs** — un couple (groupe, utilisateur) par ligne, avec
+   les mêmes colonnes que `Export-ADUsersReport.ps1`.
+4. **Membres Ordinateurs** — un couple (groupe, ordinateur) par ligne, avec
+   les mêmes colonnes que `Export-ADComputersReport.ps1` (dont l'obsolescence).
+
+```powershell
+.\Export-ADGroupsReport.ps1
+.\Export-ADGroupsReport.ps1 -SearchBase "OU=Groupes,DC=example,DC=local"
+```
+
+### `Export-GPOReport.ps1`
+
+Extrait toutes les stratégies de groupe (module `GroupPolicy`), dans un
+classeur à quatre feuilles (dates au format JJ-MM-AAAA) :
+
+1. **Synthèse** — KPI : total de GPO, activées / désactivées, GPO non liées,
+   GPO avec fichiers scripts, répartition par statut et graphique.
+2. **GPO** — une GPO par ligne : statut, description, **date de création**,
+   date de modification, propriétaire, filtre WMI, **chemin du dossier
+   SYSVOL**, nombre de liens et nombre d'entités de filtrage de sécurité.
+3. **Liens** — détail des liens (une ligne par OU/site où la GPO est appliquée).
+4. **Fichiers scripts** — **chemins des fichiers** de scripts référencés par
+   les GPO (ouverture/fermeture de session, démarrage/arrêt), s'il y en a.
+
+> À propos du « nombre de membres par GPO » : une GPO n'a pas de membres au
+> sens strict. Le rapport fournit deux mesures qui déterminent à qui la GPO
+> s'applique : le **nombre de liens** (OU/sites) et le **nombre d'entités de
+> filtrage de sécurité** (comptes/groupes ayant « Appliquer la stratégie de
+> groupe »).
+
+```powershell
+.\Export-GPOReport.ps1
+```
+
+### `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1`
+
+Audit des partages réseau SMB/NTFS des serveurs Windows du domaine, en **deux
+étapes** :
+
+1. `Audit_Securite_Serveurs_DC.ps1` s'exécute **sur le contrôleur de domaine**
+   (ou une machine avec RSAT). Il cible les serveurs de l'AD, teste la
+   connectivité (Ping + WinRM), audite les droits SMB/NTFS (exposition
+   « Everyone », contrôle total, propriétaire), classe chaque partage par
+   niveau de risque, puis exporte un **CSV** et un **JSON de métadonnées**.
+2. `Formater_Rapport_Excel.ps1` s'exécute **sur le PC de la personne**. Il lit
+   le CSV + JSON et génère un **.xlsx** mis en forme (feuille de résumé avec
+   graphique, feuille détaillée, feuilles par niveau de risque, serveurs
+   injoignables). Nécessite Python 3 + openpyxl (installés automatiquement).
+
+```powershell
+# 1) Sur le contrôleur de domaine
+.\Audit_Securite_Serveurs_DC.ps1
+.\Audit_Securite_Serveurs_DC.ps1 -SearchBase "OU=Serveurs,DC=example,DC=local"
+
+# 2) Sur le PC local, après avoir copié le CSV et le JSON
+.\Formater_Rapport_Excel.ps1
+```
+
+> Ces deux scripts ne contiennent aucune donnée d'environnement : domaine,
+> serveurs et utilisateurs sont détectés dynamiquement à l'exécution. Les
+> exemples utilisent le domaine fictif `example.local`.
 
 ## Prérequis
 
 - Windows avec le module **RSAT ActiveDirectory**
   (la commande `Get-ADUser` doit être disponible)
-- Module PowerShell **ImportExcel** — installé automatiquement par le script
-  s'il est absent (`Install-Module ImportExcel -Scope CurrentUser`)
-- Droits de **lecture** sur l'annuaire Active Directory
+- Pour `Export-GPOReport.ps1` : module **RSAT GroupPolicy**
+  (la commande `Get-GPO` doit être disponible)
+- Module PowerShell **ImportExcel** — installé automatiquement par les scripts
+  d'extraction s'il est absent (`Install-Module ImportExcel -Scope CurrentUser`)
+- Pour `Formater_Rapport_Excel.ps1` uniquement : **Python 3 + openpyxl**
+  (installés automatiquement si absents)
+- Droits de **lecture** sur l'annuaire Active Directory (et sur SYSVOL pour
+  lister les fichiers de scripts des GPO)
 
 ## Utilisation
 
