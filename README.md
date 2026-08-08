@@ -35,6 +35,46 @@ Mise en forme du rapport :
 - Comptes **désactivés** surlignés en rouge clair
 - Mots de passe en **« n'expire jamais »** signalés en rouge gras
 
+### `Export-ADComputersReport.ps1`
+
+Extrait l'ensemble des ordinateurs d'Active Directory et produit un rapport
+Excel (`.xlsx`) déposé sur le Bureau, avec une **page de synthèse (KPI)**.
+
+Colonnes exportées :
+
+| Colonne | Attribut AD |
+|---|---|
+| Nom du PC | `Name` |
+| Description | `Description` |
+| OS | `OperatingSystem` |
+| Version OS | `OperatingSystemVersion` |
+| Date de création | `whenCreated` |
+| Dernière connexion | `LastLogonDate` |
+| Statut (Activé / Désactivé) | `Enabled` |
+| Jours inactif | calculé (aujourd'hui − `LastLogonDate`) |
+| Emplacement (OU) | `DistinguishedName` |
+| Obsolète | déduit de la version de Windows (fin de support) |
+| Motif obsolescence | explication de l'obsolescence |
+
+Le classeur contient **deux feuilles** :
+
+1. **Synthèse** — indicateurs clés (total, activés/désactivés, obsolètes,
+   inactifs), répartition par OS et graphique.
+2. **Ordinateurs** — le détail de tous les postes, en tableau filtrable :
+   postes **obsolètes** surlignés, **désactivés** en gris italique, et
+   nombre de **jours d'inactivité** au-delà du seuil signalé en rouge.
+
+Logique d'obsolescence (adaptable dans le script) : Windows 10 est considéré
+obsolète (fin de support le 14/10/2025), Windows 11 et Server 2016+ sont
+supportés, les versions antérieures sont marquées obsolètes.
+
+Options :
+
+```powershell
+.\Export-ADComputersReport.ps1
+.\Export-ADComputersReport.ps1 -SearchBase "OU=Postes,DC=contoso,DC=local" -InactiveDays 60
+```
+
 ## Prérequis
 
 - Windows avec le module **RSAT ActiveDirectory**
@@ -71,3 +111,7 @@ Choisir un emplacement de sortie personnalisé :
 Ces scripts sont fournis à des fins d'administration légitime de votre propre
 domaine Active Directory. Utilisez-les uniquement avec les autorisations
 appropriées.
+
+## Auteur
+
+Valérian DUFOUR / Claude
