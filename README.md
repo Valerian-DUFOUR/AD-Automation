@@ -22,6 +22,19 @@ format **JJ-MM-AAAA**.
 | `Export-ADComputersNoBitLocker.ps1` | Postes sans clé BitLocker dans l'AD | Excel (KPI + détail) |
 | `Invoke-NetworkInventory.ps1` | Inventaire réseau + conformité VLAN | CSV / JSON / Excel (KPI) |
 | `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1` | Audit des partages SMB/NTFS (2 étapes) | CSV/JSON puis Excel |
+| `Export-LAPSReport.ps1` | Couverture LAPS (mot de passe admin local) | Excel (KPI + détail) |
+| `Export-InsecureLDAPReport.ps1` | Binds LDAP non sécurisés (comptes/IP) | Excel (KPI + détail) |
+| `Export-InsecureProtocolsReport.ps1` | Protocoles vulnérables/obsolètes (SMBv1, TLS…) | Excel (KPI + détail) |
+| `Export-ADTrustsReport.ps1` | Relations d'approbation (trusts) | Excel (KPI + détail) |
+| `Export-ADDelegationReport.ps1` | Délégations & ACL sensibles (DCSync…) | Excel (KPI + détail) |
+| `Export-GPOSecurityAudit.ps1` | GPO dangereuses (cpassword GPP, scripts) | Excel (KPI + 3 feuilles) |
+| `Export-ADCSReport.ps1` | AD CS : modèles de certificats + ESC | Excel (KPI + détail) |
+| `Export-ADHealthReport.ps1` | Santé AD : FSMO, réplication, DC | Excel (KPI + 3 feuilles) |
+| `Export-ADExpirationReport.ps1` | Échéances comptes/MDP, désactivés, vides | Excel (KPI + 5 feuilles) |
+| `Export-DHCP-DNSReport.ps1` | DHCP (occupation) + DNS (zones) | Excel (KPI + détail) |
+| `Invoke-SNMPScanner.ps1` | Scan SNMP v1/v2c + communautés faibles | Excel (KPI + détail) |
+| `Export-ADChangeDiff.ps1` | Comparaison temporelle (dérives, nouveaux admins) | Excel (KPI + détail) |
+| `Invoke-ADReportSuite.ps1` | Orchestrateur : lance tout + e-mail | Dossier daté + synthèse Excel |
 
 **Fichiers de données fournis :** `oui-db.csv` (base des fabricants MAC IEEE,
 requise par l'inventaire réseau), `sites.example.csv` et `vlans.example.csv`
@@ -400,18 +413,91 @@ Les partages exposés sont classés en quatre niveaux :
 - **Python introuvable** : installez-le depuis <https://www.python.org/downloads/>
   puis relancez `Formater_Rapport_Excel.ps1`.
 
+## Scripts de sécurité / RSSI
+
+### `Export-LAPSReport.ps1`
+Couverture LAPS (mot de passe admin local géré) par poste, via les attributs
+d'expiration `ms-Mcs-AdmPwdExpirationTime` (legacy) ou `msLAPS-PasswordExpirationTime`
+(Windows LAPS). KPI : taux de couverture, postes non couverts, mots de passe
+expirés. Postes sans LAPS surlignés. `.\Export-LAPSReport.ps1`
+
+### `Export-InsecureLDAPReport.ps1`
+Connexions LDAP non sécurisées (binds simples/en clair ou non signés) via les
+événements DC 2889 (détail par client) et 2887 (compteur). Regroupe par compte
+et par IP. Nécessite la journalisation « 16 LDAP Interface Events = 2 » sur les
+DC (rappelée dans l'en-tête). `.\Export-InsecureLDAPReport.ps1 -Days 30`
+
+### `Export-InsecureProtocolsReport.ps1`
+Audit des protocoles/réglages dangereux ou obsolètes (SMBv1, signature SMB,
+LLMNR, NTLMv1/LM, WDigest, TLS 1.0/1.1 & SSL, LDAP signing/channel binding, RDP
+NLA, PowerShell v2, Telnet/FTP, spouleur…). Chaque point classé OK / À risque /
+Critique. Local ou multi-machines : `.\Export-InsecureProtocolsReport.ps1 -ComputerName DC01,SRV01`
+
+### `Export-ADTrustsReport.ps1`
+Relations d'approbation : sens, type, transitivité, auth sélective, filtrage SID.
+Signale les configurations à risque (filtrage SID désactivé, externe
+bidirectionnelle). `.\Export-ADTrustsReport.ps1`
+
+### `Export-ADDelegationReport.ps1`
+Délégations & ACL sensibles (vue « BloodHound allégée ») sur les OU, la racine,
+AdminSDHolder et les groupes privilégiés : droits `GenericAll`, `WriteDacl`,
+`WriteOwner`, réinitialisation de mot de passe et **DCSync** accordés à des
+principaux non-admin. `.\Export-ADDelegationReport.ps1`
+
+### `Export-GPOSecurityAudit.ps1`
+GPO dangereuses : mots de passe **cpassword** dans les préférences GPP
+(MS14-025, critique), fichiers de scripts, GPO non liées/désactivées.
+`.\Export-GPOSecurityAudit.ps1`
+
+### `Export-ADCSReport.ps1`
+Inventaire AD CS (autorités + modèles de certificats) avec indicateurs de
+mauvaise configuration : **ESC1 possible** (sujet fourni par le demandeur + EKU
+d'auth client + sans approbation), EKU « Any Purpose ». À confirmer avec
+Certify/Certipy. `.\Export-ADCSReport.ps1`
+
+### `Invoke-SNMPScanner.ps1`
+Scan SNMP **v1 et v2c** : hôtes répondants, communautés acceptées (dont faibles
+`public`/`private`), sysName/sysDescr, niveau de risque. Encodage SNMP natif.
+`.\Invoke-SNMPScanner.ps1 -Subnets "192.168.1"`
+
+## Exploitation & automatisation
+
+### `Export-ADHealthReport.ps1`
+Santé AD : titulaires **FSMO**, joignabilité des DC (ping + LDAP 389), **échecs
+de réplication**. `.\Export-ADHealthReport.ps1`
+
+### `Export-ADExpirationReport.ps1`
+Échéances & nettoyage : comptes et mots de passe expirant sous N jours, comptes
+désactivés, groupes vides, OU vides. `.\Export-ADExpirationReport.ps1 -Days 45`
+
+### `Export-DHCP-DNSReport.ps1`
+DHCP (étendues, taux d'occupation, saturation > 90 %) et DNS (zones, mises à
+jour dynamiques, nombre d'enregistrements). `.\Export-DHCP-DNSReport.ps1`
+
+### `Export-ADChangeDiff.ps1`
+Détection de dérives entre deux instantanés datés : nouveaux comptes, comptes
+supprimés/réactivés et surtout **changements d'appartenance aux groupes
+privilégiés**. À planifier quotidiennement. `.\Export-ADChangeDiff.ps1`
+
+### `Invoke-ADReportSuite.ps1`
+Orchestrateur : exécute toute la série de rapports dans un dossier daté, produit
+une synthèse d'exécution (KPI) et, en option, envoie le tout par e-mail.
+`.\Invoke-ADReportSuite.ps1 -SendEmail -SmtpServer smtp.example.local -From ad@example.local -To rssi@example.local`
+
 ## Prérequis
 
-- Windows avec le module **RSAT ActiveDirectory**
-  (la commande `Get-ADUser` doit être disponible)
-- Pour `Export-GPOReport.ps1` : module **RSAT GroupPolicy**
-  (la commande `Get-GPO` doit être disponible)
-- Module PowerShell **ImportExcel** — installé automatiquement par les scripts
-  d'extraction s'il est absent (`Install-Module ImportExcel -Scope CurrentUser`)
-- Pour `Formater_Rapport_Excel.ps1` uniquement : **Python 3 + openpyxl**
-  (installés automatiquement si absents)
-- Droits de **lecture** sur l'annuaire Active Directory (et sur SYSVOL pour
-  lister les fichiers de scripts des GPO)
+- Windows avec le module **RSAT ActiveDirectory** (`Get-ADUser` disponible)
+- **RSAT GroupPolicy** (`Get-GPO`) pour `Export-GPOReport.ps1` et `Export-GPOSecurityAudit.ps1`
+- **RSAT DhcpServer / DnsServer** pour `Export-DHCP-DNSReport.ps1`
+- Module **ImportExcel** — installé automatiquement par les scripts s'il est absent
+  (`Install-Module ImportExcel -Scope CurrentUser`)
+- **Python 3 + openpyxl** pour `Formater_Rapport_Excel.ps1` uniquement (auto-installés)
+- **WinRM** activé sur les cibles pour `Export-InsecureProtocolsReport.ps1 -ComputerName`
+  et l'audit des partages
+- Droits de **lecture** sur l'annuaire (et sur SYSVOL) ; droits **administrateur**
+  pour les rapports de sécurité (LAPS, BitLocker, ACL, journaux des DC)
+- Les scripts de sécurité (scan SNMP, protocoles, délégations, AD CS…) sont à
+  n'utiliser que sur **votre propre environnement**, avec autorisation
 
 ## Utilisation générale
 
