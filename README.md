@@ -234,24 +234,31 @@ Sorties : CSV, JSON, CSV des non-conformités, et Excel avec une feuille **KPI**
 sites et de types, répartition par site et par type + graphique) et une feuille
 détaillée où les non-conformités sont surlignées.
 
-Générique : **aucune donnée d'entreprise n'est codée en dur**. Le plan de sites
-est un exemple à personnaliser, ou à fournir via un CSV externe.
+Générique : **aucune donnée d'entreprise n'est codée en dur**. Plan d'adressage
+au format **`192.A.B.C`** (A = 2ᵉ octet = site, B = 3ᵉ octet = VLAN, C = hôte),
+le 1ᵉʳ octet étant réglable via `-BaseOctet`.
 
 ```powershell
-# Nom d'entreprise + plan de sites externe + moisson SNMP des passerelles
-.\Invoke-NetworkInventory.ps1 -Entreprise "ACME" -SitesFile .\sites.csv -UseSnmpGateways
+# Nom d'entreprise + plans de sites ET de VLAN externes + moisson SNMP
+.\Invoke-NetworkInventory.ps1 -Entreprise "ACME" -SitesFile .\sites.csv -VlansFile .\vlans.csv -UseSnmpGateways
 
 # Cibler certains sites / VLAN, base d'adressage personnalisée
-.\Invoke-NetworkInventory.ps1 -BaseOctet 172 -Sites 1,2 -Vlans 1,2,20 -UseSnmpGateways
+.\Invoke-NetworkInventory.ps1 -BaseOctet 10 -Sites 1,2 -Vlans 10,20,30 -UseSnmpGateways
 ```
 
-Le plan de sites (2ᵉ octet → établissement) se personnalise dans le script ou via
-`-SitesFile` pointant un CSV `Octet;Societe;Ville;Id` (voir `sites.example.csv`).
-Le plan de VLAN (3ᵉ octet → usage) et les règles de conformité par type
-d'équipement sont un modèle éditable en tête de script. À lancer de préférence
-**depuis le contrôleur de domaine** (ou un hôte routé vers tous les sites) pour
-une couverture maximale. Nécessite `oui-db.csv` à côté du script (base publique
-IEEE) ; l'export Excel utilise ImportExcel s'il est présent.
+Deux plans, **entièrement personnalisables** (rien de figé) :
+
+- **Sites** (2ᵉ octet → établissement) : à éditer dans le script, ou via
+  `-SitesFile` pointant un CSV `Octet;Societe;Ville;Id` (voir `sites.example.csv`).
+- **VLAN** (3ᵉ octet → usage + types attendus) et **règles de conformité** par
+  type d'équipement : **vides par défaut**, à remplir dans le script (blocs
+  `$VlanMap` et `$TypeToVlan` clairement commentés) ou via `-VlansFile` pointant
+  un CSV `Octet;Nom;Attendu` (voir `vlans.example.csv`). Sans plan VLAN, le
+  balayage prend par défaut les VLAN 0 à 50 et la conformité est neutralisée.
+
+À lancer de préférence **depuis le contrôleur de domaine** (ou un hôte routé vers
+tous les sites) pour une couverture maximale. Nécessite `oui-db.csv` à côté du
+script (base publique IEEE) ; l'export Excel utilise ImportExcel s'il est présent.
 
 ### `Audit_Securite_Serveurs_DC.ps1` + `Formater_Rapport_Excel.ps1`
 

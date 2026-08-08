@@ -26,19 +26,25 @@
     Nom de l'entreprise, affiche dans le titre des rapports.
 
 .PARAMETER BaseOctet
-    Premier octet du plan d'adressage (defaut 10 -> 10.<site>.<vlan>.<hote>).
+    Premier octet du plan d'adressage (defaut 192 -> 192.A.B.C ou A=site,
+    B=VLAN, C=hote).
 
 .PARAMETER SitesFile
     Chemin d'un CSV (delimiteur ';') decrivant le plan de sites, colonnes :
     Octet;Societe;Ville;Id. S'il est fourni, il remplace la table interne.
+
+.PARAMETER VlansFile
+    Chemin d'un CSV (delimiteur ';') decrivant le plan VLAN, colonnes :
+    Octet;Nom;Attendu (Attendu = types separes par des virgules). Voir
+    vlans.example.csv. S'il est fourni, il remplace la table interne.
 
 .PARAMETER Sites
     Filtre : n'analyse que ces ID de site (2e octet). Ex : -Sites 1,20,30
     Par defaut : tous les sites connus.
 
 .PARAMETER Vlans
-    Filtre : n'analyse que ces VLAN (3e octet). Ex : -Vlans 1,2,17,50
-    Par defaut : tous les VLAN definis dans le plan.
+    Filtre : n'analyse que ces VLAN (3e octet). Ex : -Vlans 10,20,30
+    Par defaut : tous les VLAN definis dans le plan (ou 0-50 si aucun plan).
 
 .PARAMETER UseSnmpGateways
     Active la moisson des tables ARP des passerelles via SNMP (fortement conseille
@@ -58,9 +64,9 @@
     Analyse approfondie d'une seule IP (dump ports/banniere/SNMP + interpretation).
 
 .EXAMPLE
-    .\Invoke-NetworkInventory.ps1 -UseSnmpGateways
-    .\Invoke-NetworkInventory.ps1 -Sites 20 -Vlans 1,2,17,50 -UseSnmpGateways
-    .\Invoke-NetworkInventory.ps1 -Diagnostic 10.20.50.40
+    .\Invoke-NetworkInventory.ps1 -Entreprise "ACME" -SitesFile .\sites.csv -VlansFile .\vlans.csv -UseSnmpGateways
+    .\Invoke-NetworkInventory.ps1 -Sites 2 -Vlans 10,20,30 -UseSnmpGateways
+    .\Invoke-NetworkInventory.ps1 -Diagnostic 192.2.20.40
 
 .NOTES
     Compatible PowerShell 5.1 et 7+. Aucun module obligatoire (Excel via ImportExcel
@@ -72,8 +78,9 @@
 [CmdletBinding()]
 param(
     [string] $Entreprise      = "Votre entreprise",   # nom affiche dans les rapports
-    [int]    $BaseOctet       = 10,                    # 1er octet du plan (ex: 10 -> 10.site.vlan.hote)
+    [int]    $BaseOctet       = 192,                   # 1er octet du plan (192.A.B.C : A=site, B=VLAN, C=hote)
     [string] $SitesFile,                              # CSV optionnel du plan de sites (Octet;Societe;Ville;Id)
+    [string] $VlansFile,                              # CSV optionnel du plan VLAN (Octet;Nom;Attendu)
     [int[]]  $Sites,
     [int[]]  $Vlans,
     [switch] $UseSnmpGateways,
@@ -122,77 +129,52 @@ if ($SitesFile -and (Test-Path $SitesFile)) {
     Write-Host ("[SITES] Plan charge depuis {0} ({1} site(s))." -f $SitesFile, $SiteMap.Count) -ForegroundColor Green
 }
 
-# ---- VLAN : 3e octet -> usage + types d'equipements attendus ----
-#  'Attendu' = liste des types normalement presents dans ce VLAN (pour la conformite).
+# =====================================================================
+#  PLAN VLAN A PERSONNALISER (aucune donnee d'entreprise par defaut)
+# =====================================================================
+#  Le plan VLAN est propre a chaque entreprise : rien n'est code en dur ici.
+#  Deux blocs a adapter (ou a charger via -VlansFile) :
+#
+#  1) $VlanMap : 3e octet -> usage + types attendus. Personnalisez ci-dessous,
+#     OU fournissez -VlansFile <csv> (colonnes : Octet;Nom;Attendu) ou 'Attendu'
+#     est une liste de types separes par des virgules. Exemple : vlans.example.csv
 $VlanMap = @{
-    0   = @{ Nom='Serveurs / routeurs / firewalls';         Attendu=@('Serveur','Routeur','Firewall','Switch','NAS') }
-    1   = @{ Nom='Postes DHCP dynamique';                   Attendu=@('PC') }
-    2   = @{ Nom='Imprimantes (reservation DHCP)';          Attendu=@('Imprimante') }
-    3   = @{ Nom='Libre';                                   Attendu=@() }
-    4   = @{ Nom='DMZ Site';                                Attendu=@('Serveur','Firewall') }
-    5   = @{ Nom='VM Archives Site';                        Attendu=@('Serveur') }
-    15  = @{ Nom='Admin materiels (ESX,iDRAC,onduleurs,baies,APC)'; Attendu=@('Onduleur','Serveur','NAS','Switch','AdminMat') }
-    16  = @{ Nom='Indus : infra switchs/routeurs/fw';       Attendu=@('Switch','Routeur','Firewall') }
-    17  = @{ Nom='Indus : postes PC';                       Attendu=@('PC') }
-    18  = @{ Nom='Indus : automates/capteurs/MES';          Attendu=@('Automate','Capteur','PC') }
-    19  = @{ Nom='Indus : libre';                           Attendu=@() }
-    20  = @{ Nom='Serveurs';                                Attendu=@('Serveur','NAS') }
-    30  = @{ Nom='VLAN de test';                      Attendu=@() }
-    32  = @{ Nom='WiFi : infrastructure (bornes,switchs)';  Attendu=@('BorneWiFi','Switch','Routeur') }
-    33  = @{ Nom='WiFi administratif';                      Attendu=@('PC','Smartphone') }
-    34  = @{ Nom='WiFi industriel';                         Attendu=@('PC','Automate') }
-    35  = @{ Nom='WiFi invites';                            Attendu=@('PC','Smartphone') }
-    36  = @{ Nom='WiFi mobiles internes (smartphones/tablettes)'; Attendu=@('Smartphone') }
-    37  = @{ Nom='WiFi reserve';                            Attendu=@() }
-    38  = @{ Nom='WiFi reserve';                            Attendu=@() }
-    39  = @{ Nom='WiFi reserve';                            Attendu=@() }
-    40  = @{ Nom='Quarantaine';                             Attendu=@() }
-    48  = @{ Nom='Videoprotection (cameras IP, enregistreurs)'; Attendu=@('CameraIP','NVR') }
-    49  = @{ Nom='Alarme';                                  Attendu=@('Alarme') }
-    50  = @{ Nom='GTC/GTB (Badgeuse Kelio, clim, chauffage)'; Attendu=@('Badgeuse','GTC') }
-    51  = @{ Nom='Bornes recharge vehicules electriques';   Attendu=@('BorneVE') }
-    52  = @{ Nom='VPN Indus (boitiers prestataires)';       Attendu=@('VPN') }
-    53  = @{ Nom='Videoprotection production';         Attendu=@('CameraIP','NVR') }
-    64  = @{ Nom='Telephonie IP : infra (IPPBX, passerelles)'; Attendu=@('TelephoneIP','Routeur') }
-    65  = @{ Nom='Telephones IP (DHCP dynamique)';          Attendu=@('TelephoneIP') }
-    66  = @{ Nom='Telephonie : libre';                      Attendu=@() }
-    67  = @{ Nom='Telephonie : libre';                      Attendu=@() }
-    100 = @{ Nom='Reseau automates/PLC (liaison directe firewall)'; Attendu=@('Automate','PC') }
-    101 = @{ Nom='Reseau automates/PLC';                    Attendu=@('Automate') }
-    102 = @{ Nom='Reseau automates/PLC';                    Attendu=@('Automate') }
-    103 = @{ Nom='Reseau automates/PLC';                    Attendu=@('Automate') }
+    # Exemples a decommenter / adapter a VOTRE plan :
+    # 10 = @{ Nom='Serveurs';          Attendu=@('Serveur','NAS') }
+    # 20 = @{ Nom='Postes de travail'; Attendu=@('PC') }
+    # 30 = @{ Nom='Imprimantes';       Attendu=@('Imprimante') }
+    # 40 = @{ Nom='WiFi';              Attendu=@('PC','Smartphone','BorneWiFi') }
+}
+if ($VlansFile -and (Test-Path $VlansFile)) {
+    $VlanMap = @{}
+    Import-Csv -Path $VlansFile -Delimiter ';' | ForEach-Object {
+        if ("$($_.Octet)".Trim() -ne '') {
+            $att = @()
+            if ($_.Attendu) { $att = @($_.Attendu -split '\s*,\s*' | Where-Object { $_ }) }
+            $VlanMap[[int]$_.Octet] = @{ Nom = $_.Nom; Attendu = $att }
+        }
+    }
+    Write-Host ("[VLAN] Plan charge depuis {0} ({1} VLAN)." -f $VlansFile, $VlanMap.Count) -ForegroundColor Green
 }
 
-# ---- VLAN cibles par TYPE d'equipement (ou il DEVRAIT etre) ----
-#  Premier = VLAN nominal. Les suivants = toleres. Sert au calcul de conformite.
+#  2) $TypeToVlan : regles de conformite. Pour chaque TYPE d'equipement, le(s)
+#     VLAN(s) attendu(s) : le 1er = nominal, les suivants = toleres. A ADAPTER.
+#     Laissez vide pour desactiver le controle (hotes marques 'A VERIFIER').
 $TypeToVlan = @{
-    'PC'          = @(1,17,33,34,35)     # bureautique .1, indus .17, WiFi .33/34/35
-    'Serveur'     = @(0,20,4,5)
-    'NAS'         = @(20,0,15)
-    'Imprimante'  = @(2)
-    'BorneWiFi'   = @(32)
-    'Switch'      = @(0,16,32,15)
-    'Routeur'     = @(0,16,64,32)
-    'Firewall'    = @(0,16,4)
-    'Onduleur'    = @(15)
-    'AdminMat'    = @(15)
-    'CameraIP'    = @(48,53)
-    'NVR'         = @(48,53)
-    'Badgeuse'    = @(50)
-    'GTC'         = @(50)
-    'TelephoneIP' = @(64,65)
-    'Automate'    = @(18,100,101,102,103,16)
-    'Capteur'     = @(18,100)
-    'BorneVE'     = @(51)
-    'Alarme'      = @(49)
-    'Smartphone'  = @(36,33,35)
-    'VPN'         = @(52)
-    'Terminal'    = @(1,17)               # clients legers Axel
+    # Exemples a aligner sur votre $VlanMap ci-dessus :
+    # 'PC'         = @(20)
+    # 'Serveur'    = @(10)
+    # 'NAS'        = @(10)
+    # 'Imprimante' = @(30)
+    # 'BorneWiFi'  = @(40)
+    # 'Smartphone' = @(40)
 }
 
 # ---- Passerelles a interroger en SNMP (par site) pour moissonner les MAC ----
 #  Chaque passerelle detient la table ARP des sous-reseaux qu'elle route.
-$GatewayHostOctets = @(0,4,5,15,16,20,48,49,50,51,64)   # .254 sur chacun
+#  Derive des VLAN de $VlanMap (.254 par VLAN). Adaptez si besoin.
+$GatewayHostOctets = @($VlanMap.Keys | Sort-Object)
+if (@($GatewayHostOctets).Count -eq 0) { $GatewayHostOctets = @(0) }
 
 # ---- Table OUI interne de repli (si oui-db.csv absent) ----
 #  Cle = 3 premiers octets MAC ; valeur = fabricant. La base CSV externe (38k+
@@ -582,7 +564,8 @@ $OuiTable = Import-OuiDatabase -Path $OuiFile
 
 # --- Perimetre ---
 $SiteList = if ($Sites) { $Sites } else { $SiteMap.Keys | Sort-Object }
-$VlanList = if ($Vlans) { $Vlans } else { $VlanMap.Keys  | Sort-Object }
+$VlanList = if ($Vlans) { $Vlans } elseif ($VlanMap.Count -gt 0) { $VlanMap.Keys | Sort-Object } else { @(0..50) }
+if (-not $Vlans -and $VlanMap.Count -eq 0) { Write-Host "[VLAN] Aucun plan VLAN defini (-VlansFile ou edition du script) : balayage par defaut des VLAN 0 a 50." -ForegroundColor Yellow }
 
 Write-Host ("`nPerimetre : {0} site(s) x {1} VLAN x {2} hotes" -f @($SiteList).Count,@($VlanList).Count,($HostEnd-$HostStart+1)) -ForegroundColor Cyan
 

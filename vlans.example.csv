@@ -1,0 +1,5 @@
+Octet;Nom;Attendu
+10;Serveurs;Serveur,NAS
+20;Postes de travail;PC
+30;Imprimantes;Imprimante
+40;WiFi;PC,Smartphone,BorneWiFi
