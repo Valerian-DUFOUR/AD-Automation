@@ -149,6 +149,91 @@ Audit des partages réseau SMB/NTFS des serveurs Windows du domaine, en **deux
 > serveurs et utilisateurs sont détectés dynamiquement à l'exécution. Les
 > exemples utilisent le domaine fictif `example.local`.
 
+## Guide : audit des partages SMB/NTFS (pas à pas)
+
+Cet audit se déroule en deux temps : la **collecte** sur le contrôleur de
+domaine (qui a accès à l'AD et au réseau des serveurs), puis la **mise en
+forme** sur votre PC (qui a Excel/Python). Cette séparation évite d'installer
+Python sur un contrôleur de domaine.
+
+### Étape 1 — Collecte sur le contrôleur de domaine
+
+1. Connectez-vous au **contrôleur de domaine** (ou à une machine avec RSAT et
+   accès WinRM aux serveurs), de préférence en **administrateur de domaine**.
+2. Copiez `Audit_Securite_Serveurs_DC.ps1` sur la machine, puis ouvrez
+   **PowerShell en tant qu'administrateur** dans le dossier du script.
+3. Autorisez l'exécution pour la session en cours :
+
+   ```powershell
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   ```
+
+4. Lancez la collecte :
+
+   ```powershell
+   # Tout le domaine
+   .\Audit_Securite_Serveurs_DC.ps1
+
+   # Cibler une OU précise
+   .\Audit_Securite_Serveurs_DC.ps1 -SearchBase "OU=Serveurs,DC=example,DC=local"
+
+   # Ajuster la charge réseau (grands parcs)
+   .\Audit_Securite_Serveurs_DC.ps1 -BatchSize 10 -ThrottleLimit 5 -PauseSec 10
+   ```
+
+   Paramètres utiles : `-OutputDir` (dossier de sortie, Bureau par défaut),
+   `-BatchSize` (serveurs par vague, 20), `-ThrottleLimit` (connexions WinRM
+   simultanées, 10), `-PauseSec` (pause entre vagues, 5),
+   `-IncludeSystemShares` (inclure `ADMIN$`, `C$`… exclus par défaut).
+
+5. À la fin, trois fichiers sont créés dans le dossier de sortie :
+   `Audit_Securite_<date>.csv`, `Audit_Securite_<date>_meta.json` et un
+   journal `.log`. Une **reprise automatique** est prévue : si le script est
+   interrompu, relancez-le dans les 24 h pour continuer là où il s'était arrêté.
+
+### Étape 2 — Mise en forme sur votre PC
+
+1. Copiez le **CSV** et le **JSON** produits à l'étape 1 sur votre PC (par
+   exemple sur le Bureau).
+2. Copiez `Formater_Rapport_Excel.ps1` sur votre PC, ouvrez PowerShell dans son
+   dossier et lancez :
+
+   ```powershell
+   # Détecte automatiquement le CSV le plus récent sur le Bureau
+   .\Formater_Rapport_Excel.ps1
+
+   # Ou en pointant explicitement le fichier
+   .\Formater_Rapport_Excel.ps1 -CsvFile "C:\Audits\Audit_Securite_<date>.csv"
+   ```
+
+3. Si Python 3 ou openpyxl manquent, le script les installe automatiquement
+   (via winget puis pip). Le fichier **`.xlsx`** est généré à côté du CSV et
+   peut être ouvert directement à la fin.
+
+### Lecture du rapport Excel
+
+Le classeur comporte une feuille **Resume** (synthèse + graphique), une feuille
+**Audit Partages** (détail complet), une feuille **par niveau de risque**, et
+si besoin une feuille **Serveurs KO** (injoignables) et **Erreurs Audit**.
+
+Les partages exposés sont classés en quatre niveaux :
+
+| Niveau | Signification |
+|---|---|
+| **CRITIQUE** | Exposé à « Everyone » côté partage **et** NTFS, avec contrôle total |
+| **ELEVE** | Exposé à « Everyone » côté partage **et** NTFS |
+| **MOYEN** | Exposé à « Everyone » uniquement côté partage |
+| **FAIBLE** | Exposé à « Everyone » uniquement côté NTFS |
+
+### Dépannage
+
+- **Serveurs en « WinRM KO »** : activez WinRM (`winrm quickconfig`) et ouvrez
+  le port **5985** dans le pare-feu des serveurs concernés.
+- **Lectures NTFS limitées** : exécutez le script en administrateur de domaine.
+- **Blocage d'exécution** : `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
+- **Python introuvable** : installez-le depuis <https://www.python.org/downloads/>
+  puis relancez `Formater_Rapport_Excel.ps1`.
+
 ## Prérequis
 
 - Windows avec le module **RSAT ActiveDirectory**
